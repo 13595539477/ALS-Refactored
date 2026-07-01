@@ -232,8 +232,10 @@ bool AAlsCharacter::StartMantling(const FAlsMantlingTraceSettings& TraceSettings
 	                                 FQuat::Identity, Settings->Mantling.MantlingTraceChannel,
 	                                 FCollisionShape::MakeCapsule(TraceCapsuleRadius, ForwardTraceCapsuleHalfHeight),
 	                                 {ForwardTraceTag, false, this}, Settings->Mantling.MantlingTraceResponses);
-
-	auto* TargetPrimitive{ForwardTraceHit.GetComponent()};
+	
+	IPhysicsBodyInstanceOwner* BodyInstanceOwner = const_cast<IPhysicsBodyInstanceOwner*>(IPhysicsBodyInstanceOwner::GetPhysicsBodyInstanceOwnerFromHitResult(ForwardTraceHit));
+	FMovementBaseInterfaceData InterfaceData{ForwardTraceHit.GetComponent(), BodyInstanceOwner};
+	UPrimitiveComponent* TargetPrimitive = Cast<UPrimitiveComponent>(InterfaceData.PhysicsObjectOwner.Get());
 
 	if (!ForwardTraceHit.IsValidBlockingHit() ||
 	    !IsValid(TargetPrimitive) ||
@@ -403,7 +405,7 @@ bool AAlsCharacter::StartMantling(const FAlsMantlingTraceSettings& TraceSettings
 
 	FAlsMantlingParameters Parameters;
 
-	Parameters.TargetPrimitive = TargetPrimitive;
+	Parameters.InterfaceData = InterfaceData;
 	Parameters.MantlingHeight = UE_REAL_TO_FLOAT((TargetLocation.Z - CapsuleBottomLocation.Z) / CapsuleScale);
 
 	// Determine the mantling type by checking the movement mode and mantling height.
@@ -416,7 +418,7 @@ bool AAlsCharacter::StartMantling(const FAlsMantlingTraceSettings& TraceSettings
 
 	// If the target primitive cannot move, use world space to improve performance by skipping coordinate space transformations.
 
-	if (MovementBaseUtility::UseRelativeLocation(TargetPrimitive))
+	if (MovementBaseUtility::UseRelativeLocation(&InterfaceData))
 	{
 		const auto TargetTransform{
 			FTransform{TargetRotation, TargetCapsuleLocation}.GetRelativeTransform(TargetPrimitive->GetComponentTransform())
@@ -462,12 +464,13 @@ void AAlsCharacter::MulticastStartMantling_Implementation(const FAlsMantlingPara
 
 void AAlsCharacter::StartMantlingImplementation(const FAlsMantlingParameters& Parameters)
 {
+	ENetMode LocalNetMode = GetNetMode();
 	if (!IsMantlingAllowedToStart())
 	{
 		return;
 	}
 
-	if (!Parameters.TargetPrimitive.IsValid())
+	if (!ensure(Parameters.InterfaceData.IsValid()))
 	{
 		// Target primitive may be invalid on clients if the actor that the character is
 		// mantling onto is not network relevant. In this case, simply do not start mantling.
@@ -494,15 +497,16 @@ void AAlsCharacter::StartMantlingImplementation(const FAlsMantlingParameters& Pa
 
 	GetCharacterMovement()->SetMovementMode(MOVE_Custom);
 	AlsCharacterMovement->SetMovementModeLocked(true);
-
-	GetCharacterMovement()->SetBase(Parameters.TargetPrimitive.Get());
+	
+	FMovementBaseInterfaceData* InterfaceDataPtr = const_cast<FMovementBaseInterfaceData*>(&Parameters.InterfaceData);
+	GetCharacterMovement()->SetBase(InterfaceDataPtr);
 
 	// Create mantling root motion.
 
 	const auto RootMotionSource{MakeShared<FAlsRootMotionSource_Mantling>()};
 	RootMotionSource->InstanceName = __FUNCTION__;
 	RootMotionSource->MantlingSettings = MantlingSettings;
-	RootMotionSource->TargetPrimitive = Parameters.TargetPrimitive;
+	RootMotionSource->InterfaceData = Parameters.InterfaceData;
 
 	const auto StartTime{CalculateMantlingStartTime(MantlingSettings, Parameters.MantlingHeight)};
 	const auto Duration{MantlingSettings->Montage->GetPlayLength() - StartTime};
@@ -511,7 +515,7 @@ void AAlsCharacter::StartMantlingImplementation(const FAlsMantlingParameters& Pa
 	RootMotionSource->Duration = Duration / PlayRate;
 	RootMotionSource->MontageStartTime = StartTime;
 
-	const auto bUseTargetPrimitiveSpace{MovementBaseUtility::UseRelativeLocation(Parameters.TargetPrimitive.Get())};
+	const auto bUseTargetPrimitiveSpace{MovementBaseUtility::UseRelativeLocation(InterfaceDataPtr)};
 	const FTransform MeshTransform{GetBaseRotationOffset()};
 
 	// Extract the initial root transform, invert it, convert it from component space to actor space, and apply it to the actor transform.
@@ -527,7 +531,7 @@ void AAlsCharacter::StartMantlingImplementation(const FAlsMantlingParameters& Pa
 	if (bUseTargetPrimitiveSpace)
 	{
 		// Convert the start transform to the target primitive space.
-		StartTransform.SetToRelativeTransform(Parameters.TargetPrimitive->GetComponentTransform());
+		StartTransform.SetToRelativeTransform(Parameters.GetComponentTransform());
 	}
 
 	RootMotionSource->StartRotation = StartTransform.Rotator();
@@ -540,7 +544,7 @@ void AAlsCharacter::StartMantlingImplementation(const FAlsMantlingParameters& Pa
 	if (bUseTargetPrimitiveSpace)
 	{
 		// Convert the relative target transform back to world space.
-		TargetTransform *= Parameters.TargetPrimitive->GetComponentTransform();
+		TargetTransform *= Parameters.GetComponentTransform();
 		TargetTransform.SetScale3D(FVector::OneVector);
 	}
 
@@ -553,7 +557,7 @@ void AAlsCharacter::StartMantlingImplementation(const FAlsMantlingParameters& Pa
 	if (bUseTargetPrimitiveSpace)
 	{
 		// Convert the target transform to be relative to the target primitive.
-		NewTargetTransform.SetToRelativeTransform(Parameters.TargetPrimitive->GetComponentTransform());
+		NewTargetTransform.SetToRelativeTransform(Parameters.GetComponentTransform());
 	}
 
 	RootMotionSource->TargetRotation = NewTargetTransform.Rotator();
@@ -665,7 +669,7 @@ void AAlsCharacter::RefreshMantling()
 			->GetRootMotionSourceByID(static_cast<uint16>(MantlingState.RootMotionSourceId))).Get()
 	};
 
-	if (RootMotionSource != nullptr && !RootMotionSource->TargetPrimitive.IsValid())
+	if (RootMotionSource != nullptr && !RootMotionSource->InterfaceData.IsValid())
 	{
 		StopMantling(true);
 

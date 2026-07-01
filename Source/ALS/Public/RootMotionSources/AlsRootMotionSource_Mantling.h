@@ -1,6 +1,7 @@
 ﻿#pragma once
 
 #include "GameFramework/RootMotionSource.h"
+#include "Utility/AlsSerializeUtility.h"
 #include "AlsRootMotionSource_Mantling.generated.h"
 
 class UAlsMantlingSettings;
@@ -15,7 +16,7 @@ public:
 	TObjectPtr<const UAlsMantlingSettings> MantlingSettings;
 
 	UPROPERTY()
-	TWeakObjectPtr<const UPrimitiveComponent> TargetPrimitive;
+	FMovementBaseInterfaceData InterfaceData;
 
 	UPROPERTY()
 	FVector StartLocation{ForceInit};
@@ -59,3 +60,4 @@ struct TStructOpsTypeTraits<FAlsRootMotionSource_Mantling> : public TStructOpsTy
 		WithNetSerializer = true
 	};
 };
+

@@ -4,8 +4,9 @@ public class ALS : ModuleRules
 {
 	public ALS(ReadOnlyTargetRules target) : base(target)
 	{
-		IncludeOrderVersion = EngineIncludeOrderVersion.Unreal5_7;
-
+		IncludeOrderVersion = EngineIncludeOrderVersion.Unreal5_8;
+		//禁用代码优化
+		OptimizeCode = CodeOptimization.InShippingBuildsOnly;
 		// if (Target.bBuildEditor)
 		// {
 		// 	// Verify that all source files include all required dependencies.

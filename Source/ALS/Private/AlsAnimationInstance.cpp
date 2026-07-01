@@ -3,7 +3,7 @@
 #include "AlsAnimationInstanceProxy.h"
 #include "AlsCharacter.h"
 #include "DrawDebugHelpers.h"
-#include "Animation/SpringMath.h"
+#include "Math/SpringMath.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Curves/CurveFloat.h"
@@ -260,9 +260,9 @@ void UAlsAnimationInstance::RefreshMovementBaseOnGameThread()
 {
 	const auto& BasedMovement{Character->GetBasedMovement()};
 
-	if (BasedMovement.MovementBase != MovementBase.Primitive || BasedMovement.BoneName != MovementBase.BoneName)
+	if (BasedMovement.MovementBaseInterfaceData.GetMovementBaseObject() != MovementBase.Primitive || BasedMovement.BoneName != MovementBase.BoneName)
 	{
-		MovementBase.Primitive = BasedMovement.MovementBase;
+		MovementBase.Primitive = BasedMovement.MovementBaseInterfaceData.GetMovementBaseObject();
 		MovementBase.BoneName = BasedMovement.BoneName;
 		MovementBase.bBaseChanged = true;
 	}
@@ -276,7 +276,7 @@ void UAlsAnimationInstance::RefreshMovementBaseOnGameThread()
 
 	const auto PreviousRotation{MovementBase.Rotation};
 
-	MovementBaseUtility::GetMovementBaseTransform(BasedMovement.MovementBase, BasedMovement.BoneName,
+	MovementBaseUtility::GetMovementBaseTransform(&BasedMovement.MovementBaseInterfaceData, BasedMovement.BoneName,
 	                                              MovementBase.Location, MovementBase.Rotation);
 
 	MovementBase.DeltaRotation = MovementBase.bHasRelativeLocation && !MovementBase.bBaseChanged

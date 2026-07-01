@@ -3,7 +3,6 @@
 #include "Animation/AnimInstance.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "GameFramework/Character.h"
-#include "GameFramework/CharacterMovementComponent.h"
 #include "Settings/AlsMantlingSettings.h"
 #include "Utility/AlsMacros.h"
 #include "Utility/AlsMontageUtility.h"
@@ -31,7 +30,7 @@ bool FAlsRootMotionSource_Mantling::Matches(const FRootMotionSource* Other) cons
 	const auto* OtherCasted{static_cast<const FAlsRootMotionSource_Mantling*>(Other)}; // NOLINT(cppcoreguidelines-pro-type-static-cast-downcast)
 
 	return MantlingSettings == OtherCasted->MantlingSettings &&
-	       TargetPrimitive == OtherCasted->TargetPrimitive;
+	       InterfaceData == OtherCasted->InterfaceData;
 }
 
 void FAlsRootMotionSource_Mantling::PrepareRootMotion(const float SimulationDeltaTime, const float DeltaTime,
@@ -39,7 +38,7 @@ void FAlsRootMotionSource_Mantling::PrepareRootMotion(const float SimulationDelt
 {
 	SetTime(GetTime() + SimulationDeltaTime);
 
-	if (!ALS_ENSURE(GetDuration() > UE_SMALL_NUMBER) || DeltaTime <= UE_SMALL_NUMBER || !TargetPrimitive.IsValid())
+	if (!ALS_ENSURE(GetDuration() > UE_SMALL_NUMBER) || DeltaTime <= UE_SMALL_NUMBER || !InterfaceData.IsValid())
 	{
 		RootMotionParams.Clear();
 		return;
@@ -80,10 +79,10 @@ void FAlsRootMotionSource_Mantling::PrepareRootMotion(const float SimulationDelt
 	FTransform StartTransform{StartRotation, StartLocation};
 	FTransform TargetTransform{TargetRotation, TargetLocation};
 
-	if (MovementBaseUtility::UseRelativeLocation(TargetPrimitive.Get()))
+	if (MovementBaseUtility::UseRelativeLocation(&InterfaceData))
 	{
 		// Convert the start and target transforms from target primitive space to world space.
-
+		auto* TargetPrimitive = Cast<UPrimitiveComponent>(InterfaceData.PhysicsObjectOwner.Get());
 		StartTransform *= TargetPrimitive->GetComponentTransform();
 		StartTransform.SetScale3D(FVector::OneVector);
 
@@ -138,7 +137,7 @@ bool FAlsRootMotionSource_Mantling::NetSerialize(FArchive& Archive, UPackageMap*
 	auto bSuccessLocal{true};
 
 	Archive << MantlingSettings;
-	Archive << TargetPrimitive;
+	Archive << InterfaceData;
 
 	bSuccess &= SerializePackedVector<100, 30>(StartLocation, Archive);
 

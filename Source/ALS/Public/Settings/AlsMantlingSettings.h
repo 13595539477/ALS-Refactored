@@ -4,6 +4,7 @@
 #include "Engine/DataAsset.h"
 #include "Engine/EngineTypes.h"
 #include "Engine/NetSerialization.h"
+#include "Utility/AlsSerializeUtility.h"
 #include "AlsMantlingSettings.generated.h"
 
 class UAnimMontage;
@@ -21,9 +22,9 @@ USTRUCT(BlueprintType)
 struct ALS_API FAlsMantlingParameters
 {
 	GENERATED_BODY()
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ALS")
-	TWeakObjectPtr<UPrimitiveComponent> TargetPrimitive;
+	
+	UPROPERTY()
+	FMovementBaseInterfaceData InterfaceData;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ALS")
 	FVector_NetQuantize100 TargetLocation{ForceInit};
@@ -36,7 +37,37 @@ struct ALS_API FAlsMantlingParameters
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ALS")
 	EAlsMantlingType MantlingType{EAlsMantlingType::High};
+	
+public:
+	FTransform GetComponentTransform() const
+	{
+		if (InterfaceData.IsValid())
+		{
+			return CastChecked<UPrimitiveComponent>(InterfaceData.PhysicsObjectOwner.Get())->GetComponentTransform();
+		}
+		return FTransform();
+	}
+	
+	bool NetSerialize(FArchive& Ar, UPackageMap* Map, bool& bOutSuccess)
+	{
+		Ar << InterfaceData;
+		TargetLocation.NetSerialize(Ar, Map, bOutSuccess);
+		Ar << TargetRotation;
+		Ar << MantlingHeight;
+		Ar << MantlingType;
+		bOutSuccess = true;
+		return true;
+	}
 };
+template<>
+struct TStructOpsTypeTraits<FAlsMantlingParameters> : public TStructOpsTypeTraitsBase2<FAlsMantlingParameters>
+{
+	enum
+	{
+		WithNetSerializer = true,
+	};
+};
+
 
 UCLASS(Blueprintable, BlueprintType)
 class ALS_API UAlsMantlingSettings : public UDataAsset

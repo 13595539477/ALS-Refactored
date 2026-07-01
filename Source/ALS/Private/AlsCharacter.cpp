@@ -231,7 +231,7 @@ void AAlsCharacter::OnRep_ReplicatedBasedMovement()
 		FVector MovementBaseLocation;
 		FQuat MovementBaseRotation;
 
-		MovementBaseUtility::GetMovementBaseTransform(ReplicatedBasedMovement.MovementBase, ReplicatedBasedMovement.BoneName,
+		MovementBaseUtility::GetMovementBaseTransform(&ReplicatedBasedMovement.MovementBaseInterfaceData, ReplicatedBasedMovement.BoneName,
 		                                              MovementBaseLocation, MovementBaseRotation);
 
 		ReplicatedBasedMovement.Rotation = (MovementBaseRotation.Inverse() * GetActorQuat()).Rotator();
@@ -403,9 +403,9 @@ void AAlsCharacter::RefreshMeshProperties() const
 
 void AAlsCharacter::RefreshMovementBase()
 {
-	if (BasedMovement.MovementBase != MovementBase.Primitive || BasedMovement.BoneName != MovementBase.BoneName)
+	if (BasedMovement.MovementBaseInterfaceData.PhysicsObjectOwner != MovementBase.Primitive || BasedMovement.BoneName != MovementBase.BoneName)
 	{
-		MovementBase.Primitive = BasedMovement.MovementBase;
+		MovementBase.Primitive = BasedMovement.MovementBaseInterfaceData.PhysicsObjectOwner.Get();
 		MovementBase.BoneName = BasedMovement.BoneName;
 		MovementBase.bBaseChanged = true;
 	}
@@ -419,7 +419,7 @@ void AAlsCharacter::RefreshMovementBase()
 
 	const auto PreviousRotation{MovementBase.Rotation};
 
-	MovementBaseUtility::GetMovementBaseTransform(BasedMovement.MovementBase, BasedMovement.BoneName,
+	MovementBaseUtility::GetMovementBaseTransform(&BasedMovement.MovementBaseInterfaceData, BasedMovement.BoneName,
 	                                              MovementBase.Location, MovementBase.Rotation);
 
 	MovementBase.DeltaRotation = MovementBase.bHasRelativeLocation && !MovementBase.bBaseChanged
@@ -1109,7 +1109,7 @@ void AAlsCharacter::SetInputDirection(FVector NewInputDirection)
 {
 	NewInputDirection = NewInputDirection.GetSafeNormal();
 
-	COMPARE_ASSIGN_AND_MARK_PROPERTY_DIRTY(ThisClass, InputDirection, NewInputDirection, this)
+	COMPARE_ASSIGN_AND_MARK_PROPERTY_DIRTY(ThisClass, InputDirection, NewInputDirection, this);
 }
 
 void AAlsCharacter::RefreshInput(const float DeltaTime)
@@ -1329,7 +1329,7 @@ void AAlsCharacter::RefreshViewNetworkSmoothing(const float DeltaTime)
 
 void AAlsCharacter::SetDesiredVelocityYawAngle(const float NewVelocityYawAngle)
 {
-	COMPARE_ASSIGN_AND_MARK_PROPERTY_DIRTY(ThisClass, DesiredVelocityYawAngle, NewVelocityYawAngle, this)
+	COMPARE_ASSIGN_AND_MARK_PROPERTY_DIRTY(ThisClass, DesiredVelocityYawAngle, NewVelocityYawAngle, this);
 }
 
 void AAlsCharacter::RefreshLocomotionEarly()
